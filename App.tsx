@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import ChatInterface from './components/ChatInterface';
+ import ChatInterface from './src/components/ChatInterface';
 import { 
   authenticateUser, 
   subscribeToPoll, 
   subscribeToUserPreferences 
-} from './services/firebase';
-import { PollData, UserPreferences } from './types';
+ } from './src/services/firebase';
+ import { PollData, UserPreferences } from './src/types';
 
 const App: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -75,7 +75,7 @@ const App: React.FC = () => {
                 <span className="text-xl">🌅</span>
              </div>
              <div>
-                <h1 className="font-bold text-base leading-tight">Morning Pulse</h1>
+                <h1 className="font-bold text-base leading-tight">Morning Pulse - Live Sync Active</h1>
                 <p className="text-xs text-whatsapp-light/90">
                   {userPrefs.isPremium ? '✨ Premium Member' : 'AI News Bot'}
                 </p>
