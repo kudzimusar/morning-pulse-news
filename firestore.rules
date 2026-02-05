@@ -75,6 +75,17 @@ service cloud.firestore {
     // CONTENT
     // ===========================================
     
+    // POLLS (public read for current poll)
+    match /artifacts/{appId}/public/data/polls/{pollId} {
+      allow read: if true;
+      allow write: if isEditor(appId);
+    }
+    
+    // USER PREFERENCES (users can manage their own)
+    match /artifacts/{appId}/users/{userId}/preferences/{prefId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
     match /artifacts/{appId}/public/data/news/{date} {
       allow read: if true;
       allow write: if isEditor(appId);
