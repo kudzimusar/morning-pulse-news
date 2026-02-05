@@ -1,0 +1,56 @@
+/**
+ * Firebase Database Initialization Script
+ * Run this script to initialize the database with default poll data
+ */
+
+import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import serviceAccount from './serviceAccountKey.json' assert { type: 'json' };
+
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = getFirestore();
+
+const INITIAL_POLL_DATA = {
+  id: 'current_pulse_poll',
+  question: "What is your preferred news category for this week?",
+  options: {
+    "Local (Zim)": 0,
+    "Business (Zim)": 0,
+    "African Focus": 0,
+    "Global": 0
+  },
+  voters: {},
+  totalVotes: 0,
+  timestamp: Date.now()
+};
+
+async function initializeDatabase() {
+  try {
+    const appId = process.env.APP_ID || 'morning-pulse-app';
+    const pollPath = `artifacts/${appId}/public/data/polls/current_pulse_poll`;
+    
+    const pollRef = db.doc(pollPath);
+    const pollDoc = await pollRef.get();
+    
+    if (!pollDoc.exists) {
+      console.log('Initializing poll data...');
+      await pollRef.set(INITIAL_POLL_DATA);
+      console.log('✅ Poll data initialized successfully');
+    } else {
+      console.log('ℹ️  Poll data already exists, skipping initialization');
+    }
+    
+    console.log('✅ Database initialization complete');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    process.exit(1);
+  }
+}
+
+initializeDatabase();
+

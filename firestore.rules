@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===========================================
+    // HELPERS
+    // ===========================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserProfile(appId) {
+      return get(/databases/$(database)/documents/artifacts/$(appId)/public/data/profiles/$(request.auth.uid)).data;
+    }
+
+    function hasProfile(appId) {
+      return exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/profiles/$(request.auth.uid));
+    }
+
+    function hasRole(appId, role) {
+      return isAuthenticated() && 
+             hasProfile(appId) &&
+             getUserProfile(appId).roles.hasAny([role]);
+    }
+
+    function isAdmin(appId) {
+      return hasRole(appId, 'admin') || hasRole(appId, 'super_admin');
+    }
+
+    function isEditor(appId) {
+      return hasRole(appId, 'editor') || isAdmin(appId);
+    }
+
+    function isAdvertiser(appId) {
+      return hasRole(appId, 'advertiser') || 
+             (isAuthenticated() && 
+              exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/advertisers/$(request.auth.uid)));
+    }
+
+    function isAdOps(appId) {
+      return hasRole(appId, 'ad_manager') || isAdmin(appId);
+    }
+    
+    // ===========================================
+    // UNIFIED PROFILES COLLECTION
+    // ===========================================
+    match /artifacts/{appId}/public/data/profiles/{uid} {
+      allow read: if isAuthenticated() && (request.auth.uid == uid || isAdmin(appId));
+      allow create: if isAuthenticated() && request.auth.uid == uid;
+      allow update: if isAdmin(appId) || 
+                      (request.auth.uid == uid && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin', 'name']));
+      allow delete: if isAdmin(appId);
+    }
+    
+    // ===========================================
+    // STAFF COLLECTION (Legacy Support)
+    // ===========================================
+    match /artifacts/{appId}/public/data/staff/{uid} {
+      allow read: if isAuthenticated() && (request.auth.uid == uid || isEditor(appId));
+      allow write: if isAdmin(appId);
+    }
+    
+    // ===========================================
+    // SUBSCRIBERS COLLECTION
+    // ===========================================
+    match /artifacts/{appId}/public/data/subscribers/{subscriberId} {
+      allow create: if true;
+      allow read, update: if (isAuthenticated() && request.auth.uid == subscriberId) || isEditor(appId);
+      allow delete: if isAdmin(appId);
+    }
+    
+    // ===========================================
+    // CONTENT
+    // ===========================================
+    
+    match /artifacts/{appId}/public/data/news/{date} {
+      allow read: if true;
+      allow write: if isEditor(appId);
+    }
+
+    match /artifacts/{appId}/public/data/opinions/{opinionId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isEditor(appId) || (isAuthenticated() && request.auth.uid == resource.data.authorId);
+      allow delete: if isAdmin(appId);
+    }
+    
+    // ===========================================
+    // ADVERTISING
+    // ===========================================
+    
+    match /artifacts/{appId}/public/data/advertisers/{uid} {
+      allow read: if request.auth.uid == uid || isAdOps(appId);
+      allow create: if isAuthenticated() && request.auth.uid == uid;
+      allow update: if request.auth.uid == uid || isAdOps(appId);
+      allow delete: if isAdmin(appId);
+    }
+    
+    match /artifacts/{appId}/public/data/ads/{adId} {
+      allow read: if true;
+      allow create: if isAdvertiser(appId);
+      allow update: if isAdvertiser(appId) && resource.data.advertiserId == request.auth.uid || isAdOps(appId);
+      allow delete: if isAdmin(appId);
+    }
+    
+    match /artifacts/{appId}/public/data/adSlots/{slotId} {
+      allow read: if true;
+      allow write: if isAdOps(appId);
+    }
+    
+    // ===========================================
+    // DEFAULT DENY
+    // ===========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
